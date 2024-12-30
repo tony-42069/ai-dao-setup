@@ -1,0 +1,68 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Testing
+coverage/
+
+# Production
+build/
+dist/
+out/
+
+# Misc
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo
+
+# Hardhat
+cache/
+artifacts/
+
+# OpenZeppelin
+.openzeppelin/
+
+# Solidity coverage
+coverage.json
+coverage/
+
+# Hardhat plugin files
+typechain/
+typechain-types/
+
+# Local development blockchain
+deployments/localhost/
+
+# Private keys and mnemonics
+mnemonic.txt
+private-key.txt
+*.secret
+
+# Package lock files
+package-lock.json
+yarn.lock
+
+# Private directories
+packages/core/*
+packages/agents/*
+!packages/core/.gitkeep
+!packages/agents/.gitkeep
