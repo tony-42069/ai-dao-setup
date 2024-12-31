@@ -53,3 +53,13 @@
    - react
    - tailwindcss
    - framer-motion
+
+## TypeScript Configuration
+- Each package has its own tsconfig.json
+- Base configuration extends from root tsconfig.json
+- Strict type checking enabled
+- Cross-package imports handled through path aliases:
+  * @governance/* maps to governance package
+  * @agents/* maps to agents package
+- Root directory set to project root level
+- Include patterns cover all relevant package files
