@@ -1,0 +1,25 @@
+{
+  "name": "@sadellari/governance",
+  "version": "1.0.0",
+  "description": "Governance package for AI DAO",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@sadellari/contracts": "1.0.0",
+    "@sadellari/agents": "1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/react": "^18.0.0"
+  },
+  "exports": {
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/types/index.js"
+    }
+  }
+}
