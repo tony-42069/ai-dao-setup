@@ -3,12 +3,15 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "../interfaces/ITreasury.sol";
 import "../governance/SADLToken.sol";
 
-contract Treasury is Ownable {
+contract Treasury is Ownable, ITreasury {
     SADLToken public token;
     uint256 public totalFunds;
-    uint256 public lastAudit;
+    uint256 public allocatedFunds;
+    uint256 public lastUpdated;
+    Investment[] public investmentPortfolio;
 
     struct Transaction {
         address recipient;
@@ -23,43 +26,51 @@ contract Treasury is Ownable {
 
     constructor(address _token) {
         token = SADLToken(_token);
-        lastAudit = block.timestamp;
+        lastUpdated = block.timestamp;
     }
 
-    function deposit(uint256 amount) external {
+    function getState() external view override returns (TreasuryState memory) {
+        return TreasuryState({
+            totalFunds: totalFunds,
+            allocatedFunds: allocatedFunds,
+            availableFunds: totalFunds - allocatedFunds,
+            lastUpdated: lastUpdated,
+            investmentPortfolio: investmentPortfolio
+        });
+    }
+
+    function getInvestmentOptions() external view override returns (Investment[] memory) {
+        return investmentPortfolio;
+    }
+
+    function deposit(uint256 amount) external override {
         require(token.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         totalFunds += amount;
+        lastUpdated = block.timestamp;
+        emit FundsDeposited(msg.sender, amount);
     }
 
-    function proposeTransaction(
-        address recipient,
-        uint256 amount,
-        string memory description
-    ) external onlyOwner returns (uint256) {
-        require(amount <= totalFunds, "Insufficient funds");
-        
-        transactionCount++;
-        transactions[transactionCount] = Transaction({
-            recipient: recipient,
+    function withdraw(uint256 amount, address recipient) external override onlyOwner {
+        require(amount <= totalFunds - allocatedFunds, "Insufficient available funds");
+        require(token.transfer(recipient, amount), "Transfer failed");
+        totalFunds -= amount;
+        lastUpdated = block.timestamp;
+        emit FundsWithdrawn(recipient, amount);
+    }
+
+    function allocateFunds(uint256 amount, address target) external override onlyOwner {
+        require(amount <= totalFunds - allocatedFunds, "Insufficient available funds");
+        allocatedFunds += amount;
+        lastUpdated = block.timestamp;
+        emit FundsAllocated(target, amount);
+    }
+
+    function addInvestment(string memory asset, uint256 amount, uint256 value) external onlyOwner {
+        investmentPortfolio.push(Investment({
+            asset: asset,
             amount: amount,
-            description: description,
-            timestamp: block.timestamp,
-            executed: false
-        });
-        
-        return transactionCount;
-    }
-
-    function executeTransaction(uint256 transactionId) external onlyOwner {
-        Transaction storage transaction = transactions[transactionId];
-        require(!transaction.executed, "Already executed");
-        
-        require(token.transfer(transaction.recipient, transaction.amount), "Transfer failed");
-        transaction.executed = true;
-        totalFunds -= transaction.amount;
-    }
-
-    function audit() external onlyOwner {
-        lastAudit = block.timestamp;
+            value: value
+        }));
+        lastUpdated = block.timestamp;
     }
 }

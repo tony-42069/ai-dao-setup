@@ -1,9 +1,3 @@
-export interface TreasuryState {
-  totalFunds: number;
-  allocatedFunds: number;
-  availableFunds: number;
-}
-
 export interface Proposal {
   id: string;
   title: string;

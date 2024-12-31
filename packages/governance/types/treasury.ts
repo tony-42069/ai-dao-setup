@@ -2,13 +2,17 @@ export interface TreasuryState {
   totalFunds: number;
   allocatedFunds: number;
   availableFunds: number;
-  lastUpdated: Date;
-  investmentPortfolio: Investment[];
+  lastUpdated: number;
+  investmentPortfolio: {
+    asset: string;
+    amount: number;
+    value: number;
+  }[];
 }
 
 export interface Investment {
-  name: string;
+  asset: string;
+  amount: number;
   value: number;
-  riskLevel: 'low' | 'medium' | 'high';
-  maturityDate?: Date;
+  timestamp: Date;
 }
