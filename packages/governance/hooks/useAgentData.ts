@@ -1,39 +1,53 @@
 import { useEffect, useState } from 'react';
-import { systemEventEmitter } from '../../agents/shared/communication/eventEmitter';
-import { MessageTypes } from '../../agents/shared/communication/protocolTypes';
+import { AgentConfig, Decision } from '../../agents/shared/types';
+import { systemEventEmitter, MessageTypes } from '../../agents/shared/communication/eventEmitter';
+import { log } from '../../agents/shared/utils';
 
 interface AgentData {
-  id: string;
+  config: AgentConfig;
   status: 'IDLE' | 'BUSY' | 'ERROR';
-  lastActivity: string;
-  decisionsMade: number;
+  recentDecisions: Decision[];
+  error?: string;
 }
 
-export const useAgentData = () => {
-  const [agents, setAgents] = useState<AgentData[]>([]);
+export function useAgentData(agentId: string) {
+  const [data, setData] = useState<AgentData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleStatusUpdate = (data: {
-      agentId: string;
-      status: 'IDLE' | 'BUSY' | 'ERROR';
-      details?: string;
-    }) => {
-      setAgents(prev => {
-        const existing = prev.find(a => a.id === data.agentId);
-        if (existing) {
-          return prev.map(a => 
-            a.id === data.agentId 
-              ? { ...a, status: data.status, lastActivity: new Date().toISOString() }
-              : a
-          );
-        }
-        return [...prev, {
-          id: data.agentId,
-          status: data.status,
-          lastActivity: new Date().toISOString(),
-          decisionsMade: 0
-        }];
-      });
+    const fetchAgentData = async () => {
+      try {
+        // TODO: Implement actual data fetching from API or blockchain
+        const mockData: AgentData = {
+          config: {
+            role: agentId,
+            model: 'gpt-4',
+            capabilities: ['decision-making', 'analysis']
+          },
+          status: 'IDLE',
+          recentDecisions: []
+        };
+        
+        setData(mockData);
+        setLoading(false);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch agent data';
+        log(`Error fetching data for agent ${agentId}: ${errorMessage}`, 'error');
+        setError(errorMessage);
+        setLoading(false);
+      }
+    };
+
+    fetchAgentData();
+
+    const handleStatusUpdate = (update: { agentId: string; status: string }) => {
+      if (update.agentId === agentId && data) {
+        setData(prev => ({
+          ...prev!,
+          status: update.status as 'IDLE' | 'BUSY' | 'ERROR'
+        }));
+      }
     };
 
     systemEventEmitter.on(MessageTypes.STATUS_UPDATE, handleStatusUpdate);
@@ -41,7 +55,7 @@ export const useAgentData = () => {
     return () => {
       systemEventEmitter.off(MessageTypes.STATUS_UPDATE, handleStatusUpdate);
     };
-  }, []);
+  }, [agentId]);
 
-  return { agents };
-};
+  return { data, loading, error };
+}

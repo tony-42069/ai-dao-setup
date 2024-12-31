@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Proposal } from '../types/proposal';
+import { systemEventEmitter, MessageTypes } from '../../agents/shared/communication/eventEmitter';
+import { log } from '../../agents/shared/utils';
 
-export const useProposals = () => {
+export function useProposals() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -9,12 +11,12 @@ export const useProposals = () => {
   useEffect(() => {
     const fetchProposals = async () => {
       try {
-        // TODO: Replace with actual API call
+        // TODO: Implement actual data fetching from API or blockchain
         const mockProposals: Proposal[] = [
           {
             id: '1',
-            title: 'Example Proposal',
-            description: 'This is an example proposal',
+            title: 'Increase Treasury Reserve',
+            description: 'Proposal to increase the treasury reserve by 10%',
             status: 'pending',
             votes: {
               for: 0,
@@ -27,29 +29,25 @@ export const useProposals = () => {
         setProposals(mockProposals);
         setLoading(false);
       } catch (err) {
-        setError('Failed to fetch proposals');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch proposals';
+        log(`Error fetching proposals: ${errorMessage}`, 'error');
+        setError(errorMessage);
         setLoading(false);
       }
     };
 
     fetchProposals();
+
+    const handleNewProposal = (proposal: Proposal) => {
+      setProposals(prev => [proposal, ...prev]);
+    };
+
+    systemEventEmitter.on(MessageTypes.NEW_PROPOSAL, handleNewProposal);
+
+    return () => {
+      systemEventEmitter.off(MessageTypes.NEW_PROPOSAL, handleNewProposal);
+    };
   }, []);
 
-  const createProposal = async (proposal: Omit<Proposal, 'id' | 'createdAt' | 'status'>) => {
-    try {
-      // TODO: Replace with actual API call
-      const newProposal: Proposal = {
-        ...proposal,
-        id: (proposals.length + 1).toString(),
-        timestamp: Date.now(),
-        status: 'pending'
-      };
-      
-      setProposals(prev => [newProposal, ...prev]);
-    } catch (err) {
-      setError('Failed to create proposal');
-    }
-  };
-
-  return { proposals, loading, error, createProposal };
-};
+  return { proposals, loading, error };
+}
