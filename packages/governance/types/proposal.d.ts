@@ -14,3 +14,4 @@ export interface Proposal {
     };
     timestamp: number;
 }
+//# sourceMappingURL=proposal.d.ts.map
