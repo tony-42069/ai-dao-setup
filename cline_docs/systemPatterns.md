@@ -51,3 +51,11 @@
    - API routes for data fetching
    - WebSocket for real-time updates
    - Type-safe data contracts
+
+4. Third-Party Integration Lessons
+   - Slack Integration Attempt
+     * Challenges with real-time event handling
+     * Issues with message format compatibility
+     * Difficulties maintaining consistent state
+     * Key Lesson: Need robust adapter pattern for external integrations
+     * Recommendation: Implement integration gateway for future third-party services

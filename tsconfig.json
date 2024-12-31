@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@contracts/*": ["packages/contracts/*"],
+      "@governance/*": ["packages/governance/*"],
+      "@core/*": ["packages/core/*"],
+      "@agents/*": ["packages/agents/*"]
+    },
+    "jsx": "preserve"
+  },
+  "references": [
+    { "path": "packages/contracts" },
+    { "path": "packages/governance" },
+    { "path": "packages/core" },
+    { "path": "packages/agents" }
+  ],
+  "include": ["**/*"],
+  "exclude": ["node_modules", "dist"]
+}
