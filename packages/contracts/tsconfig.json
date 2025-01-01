@@ -17,6 +17,6 @@
       "@contracts/*": ["./*"]
     }
   },
-  "include": ["**/*"],
+  "include": ["**/*", "types/**/*"],
   "exclude": ["node_modules", "dist"]
 }

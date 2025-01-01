@@ -22,6 +22,7 @@ export class SlackGateway {
   }
 
   private setupEventHandlers() {
+    // Handle incoming Slack messages
     this.app.message(async ({ message, say }) => {
       try {
         const text = 'text' in message ? message.text : '';
@@ -50,8 +51,10 @@ export class SlackGateway {
         };
 
         // Send decision request to message bus
+        log(`Sending decision request to message bus: ${JSON.stringify(decisionRequest)}`);
         await this.messageBus.sendMessage(decisionRequest);
         await say('Your request has been received and is being processed.');
+        log('Decision request successfully sent to message bus');
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         log(`Slack gateway error: ${errorMessage}`, 'error');
@@ -68,6 +71,20 @@ export class SlackGateway {
         };
         await this.messageBus.sendMessage(errorMsg);
         await say('An error occurred while processing your request. Please try again later.');
+      }
+    });
+
+    // Handle responses from agents
+    this.messageBus.on('slack-response', async (response) => {
+      try {
+        if (response.sender && response.content) {
+          await this.app.client.chat.postMessage({
+            channel: response.payload?.context?.channel || 'general',
+            text: `${response.sender}: ${response.content}`
+          });
+        }
+      } catch (error) {
+        log(`Error posting Slack response: ${error}`, 'error');
       }
     });
   }

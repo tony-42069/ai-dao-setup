@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@openzeppelin/contracts": "^5.1.0",
     "@slack/bolt": "^4.2.0",
     "@slack/web-api": "^7.8.0",
     "@types/react": "^19.0.2",

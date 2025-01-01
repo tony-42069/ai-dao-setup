@@ -9,6 +9,7 @@
 - Updated TreasuryState type in governance/types/treasury.ts to match Solidity interface
 - Added type assertions in CFO agent's decisions.ts file
 - Verified Treasury contract implementation matches interface
+- Updated tsconfig.json files to properly include contract types
 
 ## Next Steps
 1. Verify CEO Agent integration with Slack

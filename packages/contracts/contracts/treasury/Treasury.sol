@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../interfaces/ITreasury.sol";
-import "../governance/SADLToken.sol";
+import "../SADLToken.sol";
 
 contract Treasury is Ownable, ITreasury {
     SADLToken public token;
