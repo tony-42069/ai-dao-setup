@@ -1,5 +1,5 @@
 {
-  "name": "slack-integration",
+  "name": "@ai-dao/slack-integration",
   "version": "1.0.0",
   "description": "Slack integration for AI DAO",
   "main": "dist/index.js",

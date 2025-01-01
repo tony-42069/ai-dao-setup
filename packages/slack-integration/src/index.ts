@@ -1,7 +1,8 @@
 import { SlackApp } from './SlackApp';
-import { AIAgent } from '@agents/AIAgent';
+import { MessageBus } from '@agents/shared/communication/messageBus';
 
-export function initializeSlackIntegration(agents: AIAgent[]): SlackApp {
+export { SlackApp };
+export function initializeSlackIntegration(messageBus: MessageBus): SlackApp {
   const token = process.env.SLACK_BOT_TOKEN;
   const signingSecret = process.env.SLACK_SIGNING_SECRET;
 
@@ -9,6 +10,6 @@ export function initializeSlackIntegration(agents: AIAgent[]): SlackApp {
     throw new Error('Slack credentials not found in environment variables');
   }
 
-  const slackApp = new SlackApp(token, signingSecret, agents);
+  const slackApp = new SlackApp(token, signingSecret, messageBus);
   return slackApp;
 }
