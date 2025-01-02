@@ -13,10 +13,61 @@ export class SlackApp {
       signingSecret,
     });
     this.messageBus = messageBus;
+    
+    // Add middleware to verify requests
+    this.app.use(async ({ body, context, next, ...args }) => {
+      const headers = args['headers'] as Record<string, string>;
+      try {
+        // Verify request timestamp
+        const timestamp = Number(headers['x-slack-request-timestamp']);
+        if (isNaN(timestamp) || Date.now() / 1000 - timestamp > 300) {
+          throw new Error('Request too old');
+        }
+
+        // Verify request signature
+        const signature = headers['x-slack-signature'] as string;
+        if (!signature) {
+          throw new Error('Missing request signature');
+        }
+
+        await next();
+      } catch (error) {
+        log(`Request verification failed: ${error}`, 'error');
+        throw error;
+      }
+    });
+
     this.setupEventHandlers();
   }
 
   private setupEventHandlers() {
+    // Handle governance commands
+    this.app.command('/governance', async ({ command, ack, say }) => {
+      await ack();
+      
+      try {
+        const [action, ...params] = command.text.split(' ');
+        
+        switch (action) {
+          case 'proposals':
+            await this.handleProposalsCommand(say);
+            break;
+          case 'vote':
+            await this.handleVoteCommand(params, say);
+            break;
+          case 'status':
+            await this.handleStatusCommand(say);
+            break;
+          default:
+            await say(`Unknown governance command: ${action}`);
+        }
+      } catch (error) {
+        log(`Error processing governance command: ${error}`, 'error');
+        await say('An error occurred while processing your governance command. Please try again.');
+      }
+    });
+
+    // Handle general messages
     this.app.message(async ({ message, say }) => {
       try {
         const text = 'text' in message ? message.text : '';
@@ -50,6 +101,33 @@ export class SlackApp {
         await say('An error occurred while processing your message. Please try again.');
       }
     });
+  }
+
+  private async handleProposalsCommand(say: any) {
+    const proposals = await this.messageBus.sendMessage({
+      type: 'GET_PROPOSALS',
+      sender: 'slack',
+      timestamp: Date.now(),
+      payload: {}
+    });
+    const formattedProposals = proposals.map(p => `• ${p.title} (ID: ${p.id})`).join('\n');
+    await say(`Current proposals:\n${formattedProposals}`);
+  }
+
+  private async handleVoteCommand(params: string[], say: any) {
+    if (params.length < 2) {
+      await say('Usage: /governance vote <proposal_id> <choice>');
+      return;
+    }
+    
+    const [proposalId, choice] = params;
+    await this.messageBus.sendVote(proposalId, choice);
+    await say(`Vote submitted for proposal ${proposalId} with choice ${choice}`);
+  }
+
+  private async handleStatusCommand(say: any) {
+    const status = await this.messageBus.requestGovernanceStatus();
+    await say(`Current governance status:\n• Proposals: ${status.proposalCount}\n• Quorum: ${status.quorumReached ? 'Reached' : 'Not reached'}`);
   }
 
   private async waitForResponse(channel: string): Promise<string> {

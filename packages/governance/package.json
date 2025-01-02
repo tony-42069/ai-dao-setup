@@ -10,11 +10,14 @@
   },
   "dependencies": {
     "@sadellari/contracts": "1.0.0",
-    "@sadellari/agents": "1.0.0"
+    "@sadellari/agents": "1.0.0",
+    "react": "^18.2.0",
+    "framer-motion": "^10.16.4"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
-    "@types/react": "^18.0.0"
+    "@types/react": "^18.0.0",
+    "@types/framer-motion": "^10.16.4"
   },
   "exports": {
     "./types": {
