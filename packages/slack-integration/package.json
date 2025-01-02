@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@slack/bolt": "^3.13.0",
-    "@agents/AIAgent": "file:../agents",
+    "@ai-dao/agents": "file:../agents",
     "dotenv": "^16.0.3"
   },
   "devDependencies": {

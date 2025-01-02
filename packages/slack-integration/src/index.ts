@@ -1,5 +1,5 @@
 import { SlackApp } from './SlackApp';
-import { MessageBus } from '@agents/shared/communication/messageBus';
+import { MessageBus } from '@ai-dao/agents/shared/communication/messageBus';
 
 export { SlackApp };
 export function initializeSlackIntegration(messageBus: MessageBus): SlackApp {

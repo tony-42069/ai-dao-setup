@@ -1,12 +1,12 @@
 import { App } from '@slack/bolt';
-import { MessageBus } from '@agents/shared/communication/messageBus';
+import { MessageBus } from '@ai-dao/agents/shared/communication/messageBus';
 import { 
   MessageTypes,
   DecisionRequestMessage, 
   ErrorMessage 
-} from '@agents/shared/communication/protocolTypes';
-import { validateSlackMessage } from '@slack-integration/validation';
-import { log } from '@agents/shared/utils';
+} from '@ai-dao/agents/shared/communication/protocolTypes';
+import { validateSlackMessage } from './validation';
+import { log } from '@ai-dao/agents/shared/utils';
 
 export class SlackGateway {
   private app: App;

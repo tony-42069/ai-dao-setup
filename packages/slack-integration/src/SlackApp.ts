@@ -1,6 +1,6 @@
 import { App } from '@slack/bolt';
-import { MessageBus } from '@agents/shared/communication/messageBus';
-import { MessageTypes, DecisionRequestMessage } from '@agents/shared/communication/protocolTypes';
+import { MessageBus } from '@ai-dao/agents/shared/communication/messageBus';
+import { MessageTypes, DecisionRequestMessage } from '@ai-dao/agents/shared/communication/protocolTypes';
 import { log } from '@ai-dao/agents/shared/utils';
 
 export class SlackApp {
@@ -15,8 +15,8 @@ export class SlackApp {
     this.messageBus = messageBus;
     
     // Add middleware to verify requests
-    this.app.use(async ({ body, context, next, ...args }) => {
-      const headers = args['headers'] as Record<string, string>;
+    this.app.use(async ({ next, ...args }) => {
+      const headers = (args as any).headers as Record<string, string>;
       try {
         // Verify request timestamp
         const timestamp = Number(headers['x-slack-request-timestamp']);
@@ -104,14 +104,20 @@ export class SlackApp {
   }
 
   private async handleProposalsCommand(say: any) {
-    const proposals = await this.messageBus.sendMessage({
-      type: 'GET_PROPOSALS',
-      sender: 'slack',
-      timestamp: Date.now(),
-      payload: {}
-    });
-    const formattedProposals = proposals.map(p => `• ${p.title} (ID: ${p.id})`).join('\n');
-    await say(`Current proposals:\n${formattedProposals}`);
+    try {
+      const response = await this.messageBus.sendMessage<{ proposals: Array<{ title: string; id: string }> }>({
+        type: 'GET_PROPOSALS',
+        sender: 'slack',
+        timestamp: Date.now(),
+        payload: {}
+      });
+      
+      const formattedProposals = response?.proposals?.map(p => `• ${p.title} (ID: ${p.id})`).join('\n') || 'No proposals found';
+      await say(`Current proposals:\n${formattedProposals}`);
+    } catch (error) {
+      log(`Error fetching proposals: ${error}`, 'error');
+      await say('An error occurred while fetching proposals. Please try again.');
+    }
   }
 
   private async handleVoteCommand(params: string[], say: any) {
@@ -121,13 +127,37 @@ export class SlackApp {
     }
     
     const [proposalId, choice] = params;
-    await this.messageBus.sendVote(proposalId, choice);
-    await say(`Vote submitted for proposal ${proposalId} with choice ${choice}`);
+    try {
+      await this.messageBus.sendMessage({
+        type: 'SEND_VOTE',
+        sender: 'slack',
+        timestamp: Date.now(),
+        payload: {
+          proposalId,
+          choice
+        }
+      });
+      await say(`Vote submitted for proposal ${proposalId} with choice ${choice}`);
+    } catch (error) {
+      log(`Error submitting vote: ${error}`, 'error');
+      await say('An error occurred while submitting your vote. Please try again.');
+    }
   }
 
   private async handleStatusCommand(say: any) {
-    const status = await this.messageBus.requestGovernanceStatus();
-    await say(`Current governance status:\n• Proposals: ${status.proposalCount}\n• Quorum: ${status.quorumReached ? 'Reached' : 'Not reached'}`);
+    try {
+      const status = await this.messageBus.sendMessage<{ proposalCount: number; quorumReached: boolean }>({
+        type: 'GET_GOVERNANCE_STATUS',
+        sender: 'slack',
+        timestamp: Date.now(),
+        payload: {}
+      });
+      
+      await say(`Current governance status:\n• Proposals: ${status?.proposalCount ?? 0}\n• Quorum: ${status?.quorumReached ? 'Reached' : 'Not reached'}`);
+    } catch (error) {
+      log(`Error fetching governance status: ${error}`, 'error');
+      await say('An error occurred while fetching governance status. Please try again.');
+    }
   }
 
   private async waitForResponse(channel: string): Promise<string> {

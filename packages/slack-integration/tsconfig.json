@@ -5,7 +5,7 @@
     "rootDir": ".",
     "baseUrl": ".",
     "paths": {
-      "@agents/*": ["../agents/*"],
+      "@ai-dao/agents/*": ["../agents/*"],
       "@slack-integration/*": ["./src/*"]
     },
     "composite": true,
