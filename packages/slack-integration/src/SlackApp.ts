@@ -1,11 +1,19 @@
 import { App } from '@slack/bolt';
 import { MessageBus } from '@ai-dao/agents/shared/communication/messageBus';
-import { MessageTypes, DecisionRequestMessage } from '@ai-dao/agents/shared/communication/protocolTypes';
+import { MessageTypes } from '@ai-dao/agents/shared/communication/protocolTypes';
+import { 
+  SlackDecisionRequest,
+  SlackResponseMessage,
+  SlackErrorMessage,
+  SlackMessageContextSchema
+} from './slackMessageTypes';
 import { log } from '@ai-dao/agents/shared/utils';
 
 export class SlackApp {
   private app: App;
   private messageBus: MessageBus;
+  private activeListeners: Map<string, { timeout: NodeJS.Timeout, startTime: number }> = new Map();
+  private maxListenerDuration = 30000; // 30 seconds
 
   constructor(token: string, signingSecret: string, messageBus: MessageBus) {
     this.app = new App({
@@ -70,21 +78,42 @@ export class SlackApp {
     // Handle general messages
     this.app.message(async ({ message, say }) => {
       try {
-        const text = 'text' in message ? message.text : '';
-        const channel = 'channel' in message ? message.channel : 'general';
+        // Type guard for Slack message event
+        const isSlackMessage = (
+          m: unknown
+        ): m is { text: string; channel: string; user: string; ts: string } => {
+          return (
+            typeof m === 'object' &&
+            m !== null &&
+            'text' in m &&
+            'channel' in m &&
+            'user' in m &&
+            'ts' in m
+          );
+        };
+
+        if (!isSlackMessage(message)) {
+          throw new Error('Invalid Slack message format');
+        }
+
+        const { text, channel, user, ts } = message;
         
         if (text) {
-          // Create decision request message
-          const decisionRequest: DecisionRequestMessage = {
+          // Create and validate decision request message
+          const decisionRequest = SlackMessageContextSchema.parse({
+            text,
+            channel,
+            userId: user,
+            timestamp: ts
+          });
+
+          const decisionRequestMessage: SlackDecisionRequest = {
             type: MessageTypes.DECISION_REQUEST,
             sender: `slack:${channel}`,
             timestamp: Date.now(),
             payload: {
               decisionId: `slack-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-              context: {
-                text,
-                channel
-              }
+              context: decisionRequest
             }
           };
 
@@ -94,7 +123,9 @@ export class SlackApp {
           
           // Wait for response
           const response = await this.waitForResponse(channel);
-          await say(response);
+          // Validate and format response
+          const responseMessage = typeof response === 'string' ? response : JSON.stringify(response);
+          await say(responseMessage);
         }
       } catch (error) {
         log(`Error processing Slack message: ${error}`, 'error');
@@ -161,19 +192,53 @@ export class SlackApp {
   }
 
   private async waitForResponse(channel: string): Promise<string> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+      
       const handler = (message: any) => {
         if (message.sender === `slack:${channel}`) {
+          clearTimeout(timeout);
+          this.activeListeners.delete(channel);
+          const processingTime = Date.now() - startTime;
+          log(`Message processed in ${processingTime}ms. Memory usage: ${JSON.stringify(process.memoryUsage())}`);
           resolve(message.payload.context.text);
         }
       };
-      
+
+      const timeout = setTimeout(() => {
+        this.messageBus.off('message', handler);
+        this.activeListeners.delete(channel);
+        const memoryUsage = process.memoryUsage();
+        log(`Listener timeout for channel ${channel}. Memory usage: ${JSON.stringify(memoryUsage)}`, 'warn');
+        reject(new Error('Response timeout'));
+      }, this.maxListenerDuration);
+
+      this.activeListeners.set(channel, { timeout, startTime: Date.now() });
       this.messageBus.on('message', handler);
     });
+  }
+
+  private logMemoryUsage() {
+    const memory = process.memoryUsage();
+    log(`Memory usage - RSS: ${memory.rss} bytes, Heap: ${memory.heapUsed}/${memory.heapTotal} bytes`);
   }
 
   public async start(port: number) {
     await this.app.start(port);
     log(`Slack app is running on port ${port}`);
+    
+    // Start periodic memory monitoring
+    setInterval(() => this.logMemoryUsage(), 60000); // Log every minute
+    
+    // Cleanup any stale listeners
+    setInterval(() => {
+      this.activeListeners.forEach((listener, channel) => {
+        if (Date.now() - listener.startTime > this.maxListenerDuration) {
+          log(`Cleaning up stale listener for channel ${channel}`, 'warn');
+          clearTimeout(listener.timeout);
+          this.activeListeners.delete(channel);
+        }
+      });
+    }, 30000); // Check every 30 seconds
   }
 }
