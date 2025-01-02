@@ -11,6 +11,13 @@ import { log } from '@ai-dao/agents/shared/utils';
 export class SlackGateway {
   private app: App;
   private messageBus: MessageBus;
+  private failedMessages: Array<{
+    sender: string;
+    content: string;
+    payload: any;
+    timestamp: number;
+    attempts: number;
+  }> = [];
 
   constructor(token: string, signingSecret: string, messageBus: MessageBus) {
     this.app = new App({
@@ -74,19 +81,88 @@ export class SlackGateway {
       }
     });
 
-    // Handle responses from agents
+    // Handle responses from agents with retry mechanism
     this.messageBus.on('slack-response', async (response) => {
-      try {
-        if (response.sender && response.content) {
-          await this.app.client.chat.postMessage({
-            channel: response.payload?.context?.channel || 'general',
-            text: `${response.sender}: ${response.content}`
-          });
+      const maxRetries = 3;
+      let attempt = 0;
+      
+      const sendMessageWithRetry = async (): Promise<void> => {
+        try {
+          if (response.sender && response.content) {
+            await this.app.client.chat.postMessage({
+              channel: response.payload?.context?.channel || 'general',
+              text: `${response.sender}: ${response.content}`
+            });
+            log(`Successfully sent Slack message to ${response.payload?.context?.channel || 'general'}`);
+          }
+        } catch (error) {
+          attempt++;
+          if (attempt < maxRetries) {
+            const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+            log(`Retry ${attempt}/${maxRetries} in ${delay}ms for Slack message: ${error}`, 'warn');
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return sendMessageWithRetry();
+          } else {
+            log(`Failed to send Slack message after ${maxRetries} attempts: ${error}`, 'error');
+            
+            // Fallback: Store failed message for later processing
+            this.queueFailedMessage(response);
+          }
         }
-      } catch (error) {
-        log(`Error posting Slack response: ${error}`, 'error');
-      }
+      };
+
+      await sendMessageWithRetry();
     });
+
+    // Initialize message queue
+    this.failedMessages = [];
+    setInterval(this.processFailedMessages.bind(this), 60000); // Process failed messages every minute
+  }
+
+  private queueFailedMessage(response: any): void {
+    this.failedMessages.push({
+      ...response,
+      timestamp: Date.now(),
+      attempts: 0
+    });
+    log(`Queued failed message for later processing. Queue size: ${this.failedMessages.length}`);
+  }
+
+  private async processFailedMessages(): Promise<void> {
+    if (this.failedMessages.length === 0) return;
+
+    log(`Processing ${this.failedMessages.length} failed messages...`);
+    const successfulMessages: Array<{
+      sender: string;
+      content: string;
+      payload: any;
+      timestamp: number;
+      attempts: number;
+    }> = [];
+    
+    for (const message of this.failedMessages) {
+      try {
+        await this.app.client.chat.postMessage({
+          channel: message.payload?.context?.channel || 'general',
+          text: `${message.sender}: ${message.content}`
+        });
+        successfulMessages.push(message);
+        log(`Successfully sent queued message to ${message.payload?.context?.channel || 'general'}`);
+      } catch (error) {
+        message.attempts++;
+        if (message.attempts >= 3) {
+          log(`Permanently failed to send queued message after 3 attempts: ${error}`, 'error');
+          successfulMessages.push(message); // Remove from queue even if failed
+        } else {
+          log(`Failed to send queued message (attempt ${message.attempts}): ${error}`, 'warn');
+        }
+      }
+    }
+
+    // Remove successfully sent messages from queue
+    this.failedMessages = this.failedMessages.filter(
+      msg => !successfulMessages.includes(msg)
+    );
   }
 
   public async start(port: number) {
