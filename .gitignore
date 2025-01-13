@@ -66,3 +66,7 @@ packages/core/*
 packages/agents/*
 !packages/core/.gitkeep
 !packages/agents/.gitkeep
+
+
+cline_docs/updated-master-plan.md
+

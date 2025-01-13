@@ -33,36 +33,117 @@ contract SADLToken is ERC20, Ownable, Pausable {
     event AIAgentRemoved(address indexed agent);
 
     constructor() ERC20("Sadellari DAO", "SADL") {
-        // Mint initial supply
-        // 51% to founder, 49% to treasury
-        _mint(msg.sender, 51_000_000 * 10**decimals()); // Founder allocation
-        _mint(address(this), 49_000_000 * 10**decimals()); // Treasury allocation
+        // Mint initial supply according to master plan:
+        // 51% founder, 29% brand development, 20% future stakeholders
+        uint256 totalSupply = 100_000_000 * 10**decimals();
+        _mint(msg.sender, (totalSupply * 51) / 100); // Founder allocation (51%)
+        _mint(address(this), (totalSupply * 29) / 100); // Brand development (29%)
+        _mint(treasury(), (totalSupply * 20) / 100); // Future stakeholders (20%)
     }
 
-    // AI Agent Management
-    function registerAIAgent(address agent) external onlyOwner {
-        isAIAgent[agent] = true;
-        emit AIAgentRegistered(agent);
+    function treasury() public view returns (address) {
+        // TODO: Replace with actual treasury contract address
+        return address(this);
     }
 
-    function removeAIAgent(address agent) external onlyOwner {
-        isAIAgent[agent] = false;
-        emit AIAgentRemoved(agent);
+    // Multi-sig AI Agent Management
+    uint256 public constant REQUIRED_SIGNATURES = 2;
+    mapping(address => uint256) public agentApprovals;
+    mapping(bytes32 => bool) public pendingApprovals;
+
+    function proposeAIAgent(address agent, bool isRegistration) external onlyOwner {
+        bytes32 proposalId = keccak256(abi.encodePacked(agent, isRegistration));
+        require(!pendingApprovals[proposalId], "Proposal already exists");
+        pendingApprovals[proposalId] = true;
+        agentApprovals[agent] = 1;
     }
 
-    // Governance
-    function createProposal(string memory description) external returns (uint256) {
-        require(balanceOf(msg.sender) > 0 || isAIAgent[msg.sender], "SADL: Must be token holder or AI agent");
+    function approveAIAgent(address agent, bool isRegistration) external onlyOwner {
+        bytes32 proposalId = keccak256(abi.encodePacked(agent, isRegistration));
+        require(pendingApprovals[proposalId], "No pending proposal");
+        agentApprovals[agent] += 1;
+
+        if (agentApprovals[agent] >= REQUIRED_SIGNATURES) {
+            if (isRegistration) {
+                isAIAgent[agent] = true;
+                emit AIAgentRegistered(agent);
+            } else {
+                isAIAgent[agent] = false;
+                emit AIAgentRemoved(agent);
+            }
+            delete pendingApprovals[proposalId];
+            delete agentApprovals[agent];
+        }
+    }
+
+    // Enhanced Governance with Decision Pipeline
+    struct Decision {
+        bytes32 id;
+        address agent;
+        DecisionType decisionType;
+        bytes data;
+        uint256 timestamp;
+        bool executed;
+        mapping(address => bool) approvals;
+        uint256 approvalCount;
+    }
+
+    enum DecisionType { FINANCIAL, TECHNICAL, OPERATIONAL, STRATEGIC }
+    
+    mapping(bytes32 => Decision) public decisions;
+    
+    event DecisionProposed(bytes32 indexed id, address indexed agent, DecisionType decisionType);
+    event DecisionExecuted(bytes32 indexed id);
+    
+    function proposeDecision(
+        DecisionType decisionType,
+        bytes calldata data
+    ) external returns (bytes32) {
+        require(isAIAgent[msg.sender], "Only AI agents can propose decisions");
         
-        uint256 proposalId = proposalCount++;
-        Proposal storage proposal = proposals[proposalId];
-        proposal.id = proposalId;
-        proposal.proposer = msg.sender;
-        proposal.description = description;
-        proposal.isAIProposal = isAIAgent[msg.sender];
+        bytes32 decisionId = keccak256(abi.encodePacked(
+            msg.sender,
+            decisionType,
+            data,
+            block.timestamp
+        ));
+        
+        Decision storage decision = decisions[decisionId];
+        decision.id = decisionId;
+        decision.agent = msg.sender;
+        decision.decisionType = decisionType;
+        decision.data = data;
+        decision.timestamp = block.timestamp;
+        
+        emit DecisionProposed(decisionId, msg.sender, decisionType);
+        return decisionId;
+    }
 
-        emit ProposalCreated(proposalId, msg.sender, description, isAIAgent[msg.sender]);
-        return proposalId;
+    function approveDecision(bytes32 decisionId) external {
+        require(isAIAgent[msg.sender], "Only AI agents can approve decisions");
+        Decision storage decision = decisions[decisionId];
+        require(!decision.executed, "Decision already executed");
+        require(!decision.approvals[msg.sender], "Already approved");
+        
+        decision.approvals[msg.sender] = true;
+        decision.approvalCount++;
+    }
+
+    function executeDecision(bytes32 decisionId) external {
+        Decision storage decision = decisions[decisionId];
+        require(!decision.executed, "Decision already executed");
+        require(decision.approvalCount >= REQUIRED_SIGNATURES, "Insufficient approvals");
+        
+        decision.executed = true;
+        emit DecisionExecuted(decisionId);
+        
+        // Execute decision based on type
+        if (decision.decisionType == DecisionType.FINANCIAL) {
+            _executeFinancialDecision(decision.data);
+        } else if (decision.decisionType == DecisionType.TECHNICAL) {
+            _executeTechnicalDecision(decision.data);
+        }
+        // Add other decision type executions as needed
     }
 
     function castVote(uint256 proposalId, bool support) external {
