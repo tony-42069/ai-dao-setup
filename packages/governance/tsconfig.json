@@ -1,25 +1,15 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "ESNext",
-    "moduleResolution": "Node",
-    "esModuleInterop": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "composite": true,
-    "declaration": true,
-    "declarationMap": true,
-    "outDir": "dist",
-    "rootDir": "../../",
+    "outDir": "./dist",
+    "rootDir": ".",
     "baseUrl": ".",
-    "jsx": "react",
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "paths": {
-      "@governance/*": ["./*"],
-      "@agents/*": ["../../packages/agents/*"]
+      "@contracts/*": ["../../packages/contracts/types/*"],
+      "@hooks/*": ["./hooks/*"],
+      "@components/*": ["./components/*"]
     }
   },
-  "include": ["**/*", "../../packages/agents/**/*"],
+  "include": ["**/*"],
   "exclude": ["node_modules", "dist"]
 }

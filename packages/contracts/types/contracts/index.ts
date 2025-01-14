@@ -7,3 +7,4 @@ import type * as treasury from "./treasury";
 export type { treasury };
 export type { Lock } from "./Lock";
 export type { SADLToken } from "./SADLToken";
+export type { Proposal } from "./governance";
